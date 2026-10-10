@@ -139,6 +139,7 @@ fn observer_rechecks_age_and_deadlines_after_async_reply_and_host_reservation() 
                 || clock.get(),
             ));
             if let Some(error) = &expected {
+                assert!(result.is_err());
                 let actual = result.err().expect("late or rolled-back clock must refuse");
                 assert_eq!(actual.category(), error);
                 assert_eq!(
