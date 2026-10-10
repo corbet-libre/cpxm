@@ -623,3 +623,40 @@ fn complete_observer_reports_survive_predicate_and_state_refusal() {
     assert!(Error::Cost.report().is_none());
     assert_eq!(Error::Cost.category(), &Error::Cost);
 }
+
+#[test]
+fn tag_simulation_uses_real_authentication_without_touching_replay_state() {
+    let tag = tag_with([0x04, 0xde, 0x5f, 0x1e, 0xac, 0xc0, 0x40], [0; 16]);
+    for disclosure in [Disclosure::Minimal, Disclosure::Complete] {
+        let result = tag
+            .simulate(NDEF, &context(), true, disclosure, 100)
+            .unwrap();
+        assert_eq!(result.expires, 200);
+        assert_eq!(
+            result.upstream.is_some(),
+            disclosure == Disclosure::Complete
+        );
+    }
+    assert!(matches!(
+        tag.simulate(NDEF, &context(), false, Disclosure::Minimal, 100),
+        Err(Error::State)
+    ));
+    assert!(
+        tag.simulate(b"tampered", &context(), true, Disclosure::Minimal, 100)
+            .is_err()
+    );
+    assert!(
+        tag.simulate(NDEF, &context(), true, Disclosure::Minimal, 200)
+            .is_err()
+    );
+    assert!(
+        tag.verify(
+            NDEF,
+            &context(),
+            &mut Store::default(),
+            Disclosure::Minimal,
+            100
+        )
+        .is_ok()
+    );
+}

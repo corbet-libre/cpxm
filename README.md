@@ -104,3 +104,8 @@ predicate or atomic consumption. Inspect `Error::report()` explicitly;
 `Error::category()` preserves the domain failure used for orchestration. Reports
 remain RAM-only, redact Debug/Display, and cannot create a verified proof. Trusted
 extension adapters can use `Error::with_report` for their own available errors.
+
+`tag::Tag::simulate` exercises actual local NTAG authentication using explicitly
+configured fixture keys and a dummy state decision. It shares cryptographic
+verification with production and returns a distinct result without touching
+replay/quota state. Tag verification itself performs no network or reader I/O.

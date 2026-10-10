@@ -50,18 +50,8 @@ impl Tag {
         disclosure: Disclosure,
         now: u64,
     ) -> Result<Verified, Error> {
-        context.validate(now)?;
-        if ndef.len() > 256 {
-            return Err(Error::Rejected);
-        }
-        let result = self
-            .verifier
-            .verify_with_meta_key(ndef, &self.file_key, &self.meta_key)
-            .map_err(|_| Error::Rejected)?;
-        if result.uid != Some(self.expected_uid) {
-            return Err(Error::Rejected);
-        }
-        let counter = result.read_ctr.ok_or(Error::Rejected)?;
+        let result = self.authenticate(ndef, context, now)?;
+        let counter = result.read_ctr.expect("authenticate requires a counter");
         let identity = self
             .blinding
             .key("tag-identity", context.scope, &self.expected_uid);
@@ -77,4 +67,54 @@ impl Tag {
             upstream: (disclosure == Disclosure::Complete).then_some(result),
         })
     }
+
+    /// Run real local tag authentication with explicit fixture keys and a dummy
+    /// state decision. No host state is read or changed, and no production proof
+    /// is returned. This checks tag authenticity, not physical presence.
+    pub fn simulate(
+        &self,
+        ndef: &[u8],
+        context: &Context<'_>,
+        permitted: bool,
+        disclosure: Disclosure,
+        now: u64,
+    ) -> Result<Simulation, Error> {
+        let result = self.authenticate(ndef, context, now)?;
+        if !permitted {
+            return Err(Error::State);
+        }
+        Ok(Simulation {
+            expires: context.expires,
+            upstream: (disclosure == Disclosure::Complete).then_some(result),
+        })
+    }
+
+    fn authenticate(
+        &self,
+        ndef: &[u8],
+        context: &Context<'_>,
+        now: u64,
+    ) -> Result<SdmVerification, Error> {
+        context.validate(now)?;
+        if ndef.len() > 256 {
+            return Err(Error::Rejected);
+        }
+        let result = self
+            .verifier
+            .verify_with_meta_key(ndef, &self.file_key, &self.meta_key)
+            .map_err(|_| Error::Rejected)?;
+        if result.uid != Some(self.expected_uid) {
+            return Err(Error::Rejected);
+        }
+        result.read_ctr.ok_or(Error::Rejected)?;
+        Ok(result)
+    }
+}
+
+/// Hypothetical authenticated tag result, distinct from a consumed production proof.
+pub struct Simulation {
+    /// Caller-selected fixture expiry, without a physical freshness claim.
+    pub expires: u64,
+    /// Full real upstream verification fields when explicitly requested.
+    pub upstream: Option<SdmVerification>,
 }

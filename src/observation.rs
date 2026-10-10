@@ -67,6 +67,8 @@ pub trait Adapter {
     fn mode(&self) -> Mode;
     /// Authenticate the observation and bind it to `context`. Before this provider
     /// call the library has required atomic host dispatch/budget reservation.
+    /// Recheck a fresh trusted clock against quote.valid_until immediately before
+    /// each actual I/O edge, including after any transport queueing.
     /// No implicit retries, unpriced I/O or logging of private evidence.
     fn verify(
         &self,
