@@ -40,3 +40,24 @@ state port and exercises real predicate/HMAC/cost transformations on dummy data.
 No live tag, location, carrier, provider or sandbox call was executed for tests.
 Owned keys are zeroized; upstream temporary copies and host swap/dumps prevent a
 claim of perfect process-memory erasure.
+
+
+## Candidate arsenal (reviewed 2026-10-10)
+
+Each candidate needs an authenticated, context-bound observer adapter before it
+can feed the implemented encounter or distance transformation. Hardware support,
+permissions, peer enrollment and remote tariffs must be checked per deployment.
+No device SDK or provider is enabled by this catalogue.
+
+| Candidate and primary reference | Integration route | Credentials, costs and guarantee limits |
+|---|---|---|
+| [Android UWB](https://developer.android.com/develop/connectivity/uwb) | Platform ranging bridge feeding an authenticated observer report. | Explicit peer/session configuration and keys; hardware/hosting costs separate. Security depends on the actual STS mode, not merely the label UWB. |
+| [Apple Nearby Interaction](https://developer.apple.com/documentation/nearbyinteraction) | Native platform bridge and supported peer/accessory session. | Device capability, enrollment and platform permissions are host concerns. A native ranging result needs an authenticated path to the server. |
+| [Android Wi-Fi RTT](https://developer.android.com/develop/connectivity/wifi/wifi-rtt) | Ranging to compatible access points/peers and position estimation. | Trusted anchor locations and uncertainty required; a distance estimate alone is not a unique person or authenticated server-side presence proof. |
+| [Bluetooth Channel Sounding](https://www.bluetooth.com/learn-about-bluetooth/feature-enhancements/channel-sounding/) | Compatible controller/platform ranging integration. | Qualify specific hardware/security configuration. Do not substitute ordinary BLE signal strength for a stronger ranging guarantee. |
+| [W3C Geolocation](https://www.w3.org/TR/geolocation/) | Browser/device location input for low-assurance scenarios. | Permission and reported accuracy are available; member-controlled coordinates cannot become a trusted observer attestation by passing JSON validation. |
+
+Local tag simulation uses explicit fixture keys and actual upstream verification,
+while the observer simulator accepts no credentials or transport. Neither result
+can become a production proof. Reader provisioning, device bridges and hardware
+qualification remain separate from the current local SDM verifier.
