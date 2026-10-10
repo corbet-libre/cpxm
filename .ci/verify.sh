@@ -11,8 +11,6 @@ export RUSTUP_TOOLCHAIN="${RUSTUP_TOOLCHAIN:-stable}"
 export RUNNER_TEMP="${RUNNER_TEMP:-$(mktemp -d)}"
 export GITHUB_PATH="${GITHUB_PATH:-$RUNNER_TEMP/github_path}"
 touch "$GITHUB_PATH"
-cargo update
-cp Cargo.lock "$ARTIFACT_ROOT/Cargo.lock"
 python3 .github/check-first-party.py
 cargo fmt --all -- --check
 cargo clippy --locked --all-targets -- -D warnings
@@ -20,6 +18,9 @@ cargo test --locked
 cargo check --locked --target wasm32-unknown-unknown
 rustup run nightly rustc --version
 NIGHTLY_CARGO="$(rustup which --toolchain nightly cargo)"
+NIGHTLY_RUSTC="$(rustup which --toolchain nightly rustc)"
+export RUSTC="$NIGHTLY_RUSTC" CARGO="$NIGHTLY_CARGO" RUSTUP_TOOLCHAIN=nightly
+export PATH="$(dirname "$NIGHTLY_RUSTC"):$PATH"
 NIGHTLY_RUSTC="$(rustup which --toolchain nightly rustc)"
 export RUSTC="$NIGHTLY_RUSTC" CARGO="$NIGHTLY_CARGO" RUSTUP_TOOLCHAIN=nightly
 export PATH="$(dirname "$NIGHTLY_RUSTC"):$PATH"

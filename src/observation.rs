@@ -245,9 +245,9 @@ impl<A: Adapter> Service<A> {
                     position.latitude,
                     position.longitude,
                 );
-                if !distance.is_finite()
-                    || distance + target.accuracy_m + position.accuracy_m > *radius_m
-                {
+                // Positive inclusion also rejects NaN from any unexpected upstream failure.
+                let within = distance + target.accuracy_m + position.accuracy_m <= *radius_m;
+                if !within {
                     return Err(Error::Rejected);
                 }
                 Guarantee::ObserverDistance
