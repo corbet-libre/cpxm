@@ -4,6 +4,8 @@ use cfbk::{Candidate, Config};
 use futures::executor::block_on;
 use observation::{Adapter, Observation, Position, Request, Requirement, Service, Verified};
 
+mod timing;
+
 fn context() -> Context<'static> {
     Context {
         scope: "opaque-scope",
@@ -325,7 +327,7 @@ fn observer_transforms_actual_geodesic_and_encounter_results() {
                     permit(&svc, &request),
                     &mut state,
                     disclosure,
-                    100,
+                    || 100,
                 ))
                 .unwrap();
                 let upstream = match result {
@@ -359,7 +361,7 @@ fn observer_transforms_actual_geodesic_and_encounter_results() {
                 ..Default::default()
             },
             Disclosure::Minimal,
-            100
+            || 100
         )),
         Err(Error::State)
     ));
@@ -393,7 +395,7 @@ fn observer_requires_authentication_context_freshness_and_explicit_permit() {
                 permit(&svc, &request()),
                 &mut Store::default(),
                 Disclosure::Minimal,
-                100
+                || 100
             )),
             Err(Error::Rejected)
         ));
@@ -414,7 +416,7 @@ fn observer_requires_authentication_context_freshness_and_explicit_permit() {
                 permit(&svc, &distance()),
                 &mut Store::default(),
                 Disclosure::Minimal,
-                100
+                || 100
             )),
             Err(Error::Rejected)
         ));
@@ -428,7 +430,7 @@ fn observer_requires_authentication_context_freshness_and_explicit_permit() {
                 permit_for(&svc, &request(), id, changed),
                 &mut Store::default(),
                 Disclosure::Minimal,
-                100
+                || 100
             )),
             Err(Error::Cost)
         ));
@@ -440,7 +442,7 @@ fn observer_requires_authentication_context_freshness_and_explicit_permit() {
             permit(&svc, &request()),
             &mut Store::default(),
             Disclosure::Minimal,
-            100
+            || 100
         ))
         .is_err()
     );
@@ -453,7 +455,7 @@ fn observer_requires_authentication_context_freshness_and_explicit_permit() {
             permit(&svc, &request()),
             &mut Store::default(),
             Disclosure::Minimal,
-            100
+            || 100
         ))
         .is_err()
     );
@@ -466,7 +468,7 @@ fn observer_requires_authentication_context_freshness_and_explicit_permit() {
             permit(&svc, &request()),
             &mut Store::default(),
             Disclosure::Minimal,
-            100
+            || 100
         )),
         Err(Error::Uncertain)
     ));
@@ -599,7 +601,7 @@ fn complete_observer_reports_survive_predicate_and_state_refusal() {
             permit(&svc, &request()),
             &mut state,
             Disclosure::Complete,
-            100,
+            || 100,
         ))
         .err()
         .unwrap();

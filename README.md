@@ -97,6 +97,9 @@ trusted-observer dummies. Coverage includes privacy transformation, context,
 expiry, counters, quota refusal, cost bindings, modes, ambiguity and rich fields.
 No live hardware, billable provider or external sandbox call has been executed.
 
+Async verification takes a trusted live clock (`|| trusted_now()`), rechecked
+after each awaited boundary. Expired results and clock rollback refuse a new proof.
+
 See [the contract](docs/CONTRACT.md) and [provider notes](docs/PROVIDERS.md).
 
 Complete response access also applies to bounded provider replies that fail a

@@ -37,3 +37,16 @@ construct a production proof or reserve production usage.
 Tests use actual upstream tag vectors, geodesics and concurrent host-state
 examples. Concrete reader/ranging/GNSS vendors remain candidates; no live
 hardware/provider/sandbox operation has run. See [provider notes](PROVIDERS.md).
+
+Async verification receives a trusted live clock, for example
+`verify(..., || trusted_now())`. The library samples it at admission, after
+operation reservation, after the provider returns and after atomic consumption.
+Clock rollback refuses the operation. Expiry is exclusive: no fresh proof is
+returned at or beyond its deadline. Tariff expiry controls dispatch; it does not
+invalidate a timely proof from a request already sent under a valid tariff.
+Transports must also check a fresh clock immediately before I/O after their own
+queue waits. Atomic state ports must check proof validity within their transaction.
+Late refusals preserve requested private responses and never automatically undo
+committed usage or release potentially billed exposure.
+Observation age and location/encounter predicates are rechecked at completion
+and after registration; a queued result cannot retain its earlier freshness.

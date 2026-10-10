@@ -136,6 +136,7 @@ pub trait State {
     /// A tag counter must exceed the last accepted counter for that evidence identity.
     /// `None` means single-use observation ID. Never count-then-write, nor reset
     /// monotonic counters when a quota window changes. Store only these opaque keys.
+    /// Check the exclusive context expiry against a fresh clock inside the transaction.
     fn reserve(
         &mut self,
         identity: &str,

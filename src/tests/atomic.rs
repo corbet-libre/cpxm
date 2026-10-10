@@ -179,7 +179,7 @@ fn authenticated_observers_share_quota_but_distinct_events_cannot_exceed_caller_
                     permit(&svc, &request),
                     &mut port,
                     Disclosure::Minimal,
-                    100,
+                    || 100,
                 ));
                 (registration, nonce, result.is_ok())
             })
@@ -210,7 +210,7 @@ fn authenticated_observers_share_quota_but_distinct_events_cannot_exceed_caller_
             permit(&svc, &request),
             &mut state.clone(),
             Disclosure::Minimal,
-            100
+            || 100
         )),
         Err(Error::Cost)
     ));
@@ -304,7 +304,7 @@ fn quote_never_extends_a_shorter_tariff_and_stale_quotes_cannot_dispatch() {
             permit,
             &mut AtomicState::default(),
             Disclosure::Minimal,
-            101
+            || 101
         )),
         Err(Error::Cost)
     ));
@@ -347,7 +347,7 @@ fn observer_requires_host_dispatch_reservation_before_provider_or_usage() {
             permit(&svc, &request()),
             &mut RefuseDispatch,
             Disclosure::Minimal,
-            100
+            || 100
         )),
         Err(Error::Cost)
     ));

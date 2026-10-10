@@ -237,6 +237,8 @@ pub enum Verified {
 }
 impl<A: Adapter> Service<A> {
     /// Verify under a bound permit, transform, then atomically reserve opaque state.
+    /// Supply a fresh Unix-seconds clock, rechecked after reservation, provider
+    /// completion and consumption. Expiry never automatically releases fee exposure.
     pub async fn verify(
         &self,
         request: &Request<'_>,
@@ -244,8 +246,9 @@ impl<A: Adapter> Service<A> {
         permit: DispatchPermit<String>,
         state: &mut (impl State + DispatchState),
         disclosure: Disclosure,
-        now: u64,
+        clock: impl Fn() -> u64,
     ) -> Result<Verified, Error> {
+        let now = clock();
         request.validate(now)?;
         if evidence.len() > 65536 || self.adapter.mode() == Mode::Simulation {
             return Err(Error::Rejected);
@@ -263,11 +266,26 @@ impl<A: Adapter> Service<A> {
         if !state.reserve_dispatch(permit.quote()) {
             return Err(Error::Cost);
         }
+        let dispatch_at = clock();
+        if dispatch_at < now || dispatch_at >= request.context.expires {
+            return Err(Error::Cost);
+        }
+        permit
+            .validate(
+                &binding(&self.adapter, request, evidence),
+                self.adapter.mode(),
+                dispatch_at,
+            )
+            .map_err(|_| Error::Cost)?;
         let result = self
             .adapter
             .verify(evidence, &request.binding(), permit.quote())
             .await?;
-        let guarantee = evaluate(request, &result, now)
+        let completed_at = clock();
+        if completed_at < dispatch_at || completed_at >= request.context.expires {
+            return Err(Error::Rejected.with_report(disclosure, result.upstream));
+        }
+        let guarantee = evaluate(request, &result, completed_at)
             .map_err(|error| error.with_report(disclosure, result.upstream.clone()))?;
         if self.adapter.mode() == Mode::Sandbox {
             return Ok(Verified::Sandbox {
@@ -285,6 +303,12 @@ impl<A: Adapter> Service<A> {
         if !state.reserve(&identity, &evidence, None, &request.context) {
             return Err(Error::State.with_report(disclosure, result.upstream));
         }
+        let accepted_at = clock();
+        if accepted_at < completed_at || accepted_at >= request.context.expires {
+            return Err(Error::Rejected.with_report(disclosure, result.upstream));
+        }
+        evaluate(request, &result, accepted_at)
+            .map_err(|error| error.with_report(disclosure, result.upstream.clone()))?;
         Ok(Verified::Production {
             proof: Proof {
                 guarantee,
