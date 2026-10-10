@@ -1,16 +1,18 @@
 # Agent instructions
 
-Write all code comments and documentation in English.
+Reusable proximity domain library; cvld is one consumer. Owned Rust is safe,
+English comments, no direct database/file persistence. Scope includes tag reads,
+trusted readers, member encounters and distance/location; each states its actual
+guarantee. Never label unauthenticated GPS, BLE RSSI or an NFC UID a secure
+physical-presence proof. No invented distance-bounding or crypto protocol.
 
-## Product boundary
+Integrate maintained upstream implementations. Host owns credentials, atomic
+quota/replay state and persistence. Raw provider data is transient; explicit
+complete output must remain available. Pre-dispatch sourced costs and bound
+permits required for any potentially billable adapter operation. Unknown costs
+block; ambiguous outcomes stop fallback. No paid or live/hardware tests authorized.
 
-- Proximity gate for cvld (placeholder): proof of physical presence, for example via an NFC tag.
-- Would prove physical presence and return an opaque gate proof bound to its configured provider.
-- No location data or tag identifiers in `cvld` output, logs, errors or fixtures.
-- This crate is LGPL-3.0-only WITH LGPL-3.0-linking-exception. Do not add implementation code available only under the full GPL or AGPL.
-
-## Quality boundary
-
-- `cargo fmt --check`, `cargo clippy --all-targets` (no warnings),
-  `cargo test` — all green before every commit. No local workstation
-  builds; use GHA, Crow as fallback.
+Workstations edit/format; Crow compiles/tests committed main candidates. Preserve
+fmt, strict Clippy, native tests, Wasm compile and complete source coverage.
+Use dependency ranges and first-party main, not exact manifest pins.
+LGPL-3.0-only WITH LGPL-3.0-linking-exception; no incompatible implementation code.
