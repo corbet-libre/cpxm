@@ -27,6 +27,55 @@ pub enum Error {
     /// Cost authorization is invalid for this operation.
     #[error("proximity cost authorization rejected")]
     Cost,
+    /// Explicitly requested private provider information accompanies a failure.
+    #[error("{cause}")]
+    Reported {
+        /// Redacted domain failure; use category() for orchestration decisions.
+        cause: Box<Error>,
+        /// Transient provider response; diagnostics redact its contents.
+        report: ProviderReport,
+    },
+}
+/// Private transient provider data. Access and retention are explicit caller choices.
+#[derive(PartialEq, Eq)]
+pub struct ProviderReport(serde_json::Value);
+impl ProviderReport {
+    /// Borrow all fields provided by this adapter, including unrecognized extensions.
+    pub fn information(&self) -> &serde_json::Value {
+        &self.0
+    }
+}
+impl std::fmt::Debug for ProviderReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ProviderReport([redacted])")
+    }
+}
+impl Error {
+    /// Underlying failure category, without private provider information.
+    pub fn category(&self) -> &Self {
+        match self {
+            Self::Reported { cause, .. } => cause.category(),
+            other => other,
+        }
+    }
+    /// Explicit access to the requested provider report on a failed operation.
+    pub fn report(&self) -> Option<&ProviderReport> {
+        match self {
+            Self::Reported { report, .. } => Some(report),
+            _ => None,
+        }
+    }
+    /// Trusted adapters can preserve their available fields on failures too.
+    pub fn with_report(self, disclosure: Disclosure, information: serde_json::Value) -> Self {
+        if disclosure == Disclosure::Complete {
+            Self::Reported {
+                cause: Box::new(self),
+                report: ProviderReport(information),
+            }
+        } else {
+            self
+        }
+    }
 }
 
 /// Required caller-owned atomic dispatch and budget reservation.
@@ -36,6 +85,7 @@ pub trait DispatchState {
     /// Atomically reserve the exact quote binding and its maximum fee before I/O.
     /// Return true only for a newly admitted dispatch. Previously dispatched,
     /// pending or uncertain bindings must return false, including after restarts.
+    /// Check a fresh trusted clock against quote.valid_until at this atomic boundary.
     /// Reconciliation belongs to the host; dropping an adapter is not a rollback.
     fn reserve_dispatch(&mut self, quote: &Quote) -> bool;
 }

@@ -581,3 +581,45 @@ impl DispatchState for Store {
         true // Each independent fixture models a newly admitted host operation.
     }
 }
+
+#[test]
+fn complete_observer_reports_survive_predicate_and_state_refusal() {
+    for rejected in [true, false] {
+        let mut svc = service();
+        if rejected {
+            svc.adapter.mutate = |o| o.subject = "wrong".into();
+        }
+        let mut state = Store {
+            deny: true,
+            ..Default::default()
+        };
+        let error = block_on(svc.verify(
+            &request(),
+            b"inert-evidence",
+            permit(&svc, &request()),
+            &mut state,
+            Disclosure::Complete,
+            100,
+        ))
+        .err()
+        .unwrap();
+        assert_eq!(
+            error.category(),
+            if rejected {
+                &Error::Rejected
+            } else {
+                &Error::State
+            }
+        );
+        let report = error.report().unwrap();
+        assert_eq!(
+            report.information()["unknown-field"],
+            serde_json::json!([1, 2, 3])
+        );
+        assert_eq!(format!("{report:?}"), "ProviderReport([redacted])");
+        assert_eq!(error.to_string(), error.category().to_string());
+        assert!(!format!("{error:?}").contains("unknown-field"));
+    }
+    assert!(Error::Cost.report().is_none());
+    assert_eq!(Error::Cost.category(), &Error::Cost);
+}

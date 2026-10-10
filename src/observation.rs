@@ -265,10 +265,12 @@ impl<A: Adapter> Service<A> {
             .adapter
             .verify(evidence, &request.binding(), permit.quote())
             .await?;
-        let guarantee = evaluate(request, &result, now)?;
-        let upstream = (disclosure == Disclosure::Complete).then_some(result.upstream);
+        let guarantee = evaluate(request, &result, now)
+            .map_err(|error| error.with_report(disclosure, result.upstream.clone()))?;
         if self.adapter.mode() == Mode::Sandbox {
-            return Ok(Verified::Sandbox { upstream });
+            return Ok(Verified::Sandbox {
+                upstream: (disclosure == Disclosure::Complete).then_some(result.upstream),
+            });
         }
         let identity = self.blinding.key(
             "observer-subject",
@@ -279,14 +281,14 @@ impl<A: Adapter> Service<A> {
             .blinding
             .key("observer-replay", "", result.id.as_bytes());
         if !state.reserve(&identity, &evidence, None, &request.context) {
-            return Err(Error::State);
+            return Err(Error::State.with_report(disclosure, result.upstream));
         }
         Ok(Verified::Production {
             proof: Proof {
                 guarantee,
                 expires: request.context.expires,
             },
-            upstream,
+            upstream: (disclosure == Disclosure::Complete).then_some(result.upstream),
         })
     }
 }

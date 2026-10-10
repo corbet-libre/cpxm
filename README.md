@@ -98,3 +98,9 @@ expiry, counters, quota refusal, cost bindings, modes, ambiguity and rich fields
 No live hardware, billable provider or external sandbox call has been executed.
 
 See [the contract](docs/CONTRACT.md) and [provider notes](docs/PROVIDERS.md).
+
+Complete response access also applies to bounded provider replies that fail a
+predicate or atomic consumption. Inspect `Error::report()` explicitly;
+`Error::category()` preserves the domain failure used for orchestration. Reports
+remain RAM-only, redact Debug/Display, and cannot create a verified proof. Trusted
+extension adapters can use `Error::with_report` for their own available errors.
