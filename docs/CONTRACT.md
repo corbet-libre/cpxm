@@ -1,15 +1,39 @@
-# Proximity boundary
+# Proximity contract
 
-This remains a placeholder for physical-presence verification. Mechanism,
-provider and final scope are undecided; an NFC example is not a selected
-protocol. Location data and tag identifiers must not enter cvld outputs,
-diagnostics or fixtures. No proof or accepting adapter is implemented.
+The domain supports authenticated tag reads, trusted member encounters and
+trusted distance/location observations. Each result names exactly what the
+mechanism establishes; none implies person uniqueness or relay resistance.
 
-`cfbk` owns provider ordering/fallback and `crbk` owns requirements. Each gate
-invocation checks one provider result.
+The NTAG adapter verifies bounded NDEF data through maintained `ntag424`, checks
+the enrolled UID and authenticated counter, then calls atomic host `State` with
+opaque identity/replay keys. Quota identity is caller-scoped. Tag counter identity
+is global within the configured source domain so a changed window cannot rearm
+an old read. SDM does not authenticate the host action, wall-clock read time or
+physical distance; a captured unused read may still be relayed later.
 
-No local security primitive, confidence ranking or accepting placeholder may
-be introduced. Registry publication, paid operations and live provider calls
-are outside this configuration task. Empty production coverage must fail;
-real owner/provider contracts and adversarial tests are required before any
-implementation can claim verification.
+The open observer `Adapter` is trusted application code, not member JSON. It
+must independently authenticate subject, event ID, timestamp and the complete
+request context. The library checks subject, peer or conservative WGS84 radius,
+including both explicit accuracy bounds. Source quality remains caller policy;
+probabilistic GPS accuracy is not silently upgraded to a hard bound.
+
+Before any potentially billed observer call, an exact/maximum sourced tariff
+must pass cfbk planning and permit validation. Effective validity never exceeds
+the tariff or action deadline. Required `DispatchState` atomically reserves the
+operation and total host budget before the adapter is invoked. Duplicates and
+uncertain operations refuse redispatch; host state owns reconciliation and
+cross-process persistence. Separate `State` atomically enforces quota and replay
+following successful authentication. No database pool/connection or file cache
+enters the library.
+
+Complete upstream fields are available only by explicit request in RAM. Default
+results expose guarantee and expiry; raw UID/location is discarded. Provider
+extensions are available data, not automatically authenticated facts. Identity
+keys are stable privacy configuration distinct from provider credentials.
+Simulation uses the same observation predicates, identity transform and cfbk
+cascade with dummy data and separate output types. Sandbox outputs cannot
+construct a production proof or reserve production usage.
+
+Tests use actual upstream tag vectors, geodesics and concurrent host-state
+examples. Concrete reader/ranging/GNSS vendors remain candidates; no live
+hardware/provider/sandbox operation has run. See [provider notes](PROVIDERS.md).

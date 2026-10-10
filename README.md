@@ -36,10 +36,11 @@ be treated as an authenticated `Observation`. The returned context must bind the
 whole `Request::binding`, not only a loose member identifier. The library checks
 subject, fresh context, observation ID/time, expected peer or location predicate.
 
-Construct a pure `preview` from an explicit current fee/tariff with source; select
+Construct a pure `preview` from an explicit current fee/tariff with source and
+exclusive validity; the effective deadline is the earlier tariff/action expiry. Select
 eligible candidates through `cfbk::cost::Plan`. Pass its move-only permit to
-`Service::verify`. The adapter reserves the quoted operation identity/exposure in
-caller state before any I/O. Use configured or cheapest bounded-cost order;
+`Service::verify`. The library requires `DispatchState::reserve_dispatch` for the
+quoted operation identity/exposure before calling an adapter. Use configured or cheapest bounded-cost order;
 pending/uncertain results stop fallback and retain fee exposure. Native cfbk
 plans do not replace cross-process atomic operation/budget storage.
 
@@ -55,8 +56,11 @@ not zero CPU, reader or hardware cost. Observer adapters may have provider costs
 configure exact or maximum prices including internal fallbacks and account fees.
 Unknown/expired quotes cannot authorize production dispatch. No implicit free tier.
 
-`simulate` returns a distinct inert type and touches no state, hardware, adapter
-or network. cfbk Simulation mode can exercise dummy cascades. Provider Sandbox
+`simulate` runs the real encounter/geodesic predicates, scoped identity transform
+and cfbk cost cascade with explicit dummy observations/outcomes. It returns a
+distinct `Simulation` and touches no state, hardware, adapter or network. Public
+simulation keys are only for dummy data. Tag authentication is exercised by real
+upstream-vector tests; this simulator cannot make a tag read. Provider Sandbox
 requires a separately configured adapter and produces a separate output; it cannot
 reserve production registrations or yield `Proof`. No sandbox is assumed free.
 
@@ -92,3 +96,5 @@ Tests use an actual public NTAG vector, real geodesic calculation, and explicit
 trusted-observer dummies. Coverage includes privacy transformation, context,
 expiry, counters, quota refusal, cost bindings, modes, ambiguity and rich fields.
 No live hardware, billable provider or external sandbox call has been executed.
+
+See [the contract](docs/CONTRACT.md) and [provider notes](docs/PROVIDERS.md).

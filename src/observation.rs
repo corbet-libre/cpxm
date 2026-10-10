@@ -1,6 +1,6 @@
 //! Trusted observer adapter boundary and conservative geodesic transformation.
 //! An adapter must authenticate the evidence; browser GPS/BLE alone is not trusted.
-use crate::{Blinding, Context, Disclosure, Error, Guarantee, Proof, State};
+use crate::{Blinding, Context, Disclosure, DispatchState, Error, Guarantee, Proof, State};
 use cfbk::cost::{DispatchPermit, Mode, Price, Quote};
 use geographiclib_rs::{Geodesic, InverseGeodesic};
 use sha2::{Digest, Sha256};
@@ -65,9 +65,9 @@ pub trait Adapter {
     fn id(&self) -> &str;
     /// Production or provider sandbox; never local simulation.
     fn mode(&self) -> Mode;
-    /// Authenticate the observation and bind it to `context`. Before any provider
-    /// call atomically reserve `quote.binding` and maximum cost in caller-owned
-    /// state. No implicit retries, unpriced I/O or logging of private evidence.
+    /// Authenticate the observation and bind it to `context`. Before this provider
+    /// call the library has required atomic host dispatch/budget reservation.
+    /// No implicit retries, unpriced I/O or logging of private evidence.
     fn verify(
         &self,
         evidence: &[u8],
@@ -91,7 +91,7 @@ pub struct Request<'a> {
 }
 
 impl Request<'_> {
-    fn validate(&self, now: u64) -> Result<(), Error> {
+    pub(crate) fn validate(&self, now: u64) -> Result<(), Error> {
         self.context.validate(now)?;
         if self.subject.is_empty() || self.nonce.is_empty() || self.max_age == 0 {
             return Err(Error::Configuration);
@@ -149,6 +149,48 @@ fn binding(adapter: &impl Adapter, request: &Request<'_>, evidence: &[u8]) -> St
     ))
 }
 
+pub(crate) fn evaluate(
+    request: &Request<'_>,
+    result: &Observation,
+    now: u64,
+) -> Result<Guarantee, Error> {
+    if result.subject != request.subject
+        || result.context != request.binding()
+        || result.id.is_empty()
+        || result.observed_at > now
+        || now - result.observed_at > request.max_age
+    {
+        return Err(Error::Rejected);
+    }
+    let guarantee = match &request.requirement {
+        Requirement::Encounter { peer } => {
+            if result.peer.as_deref() != Some(*peer) {
+                return Err(Error::Rejected);
+            }
+            Guarantee::ObserverEncounter
+        }
+        Requirement::Distance { target, radius_m } => {
+            let position = result.position.as_ref().ok_or(Error::Rejected)?;
+            if !position.validate() {
+                return Err(Error::Rejected);
+            }
+            let distance: f64 = Geodesic::wgs84().inverse(
+                target.latitude,
+                target.longitude,
+                position.latitude,
+                position.longitude,
+            );
+            // Positive inclusion also rejects NaN from any unexpected upstream failure.
+            let within = distance + target.accuracy_m + position.accuracy_m <= *radius_m;
+            if !within {
+                return Err(Error::Rejected);
+            }
+            Guarantee::ObserverDistance
+        }
+    };
+    Ok(guarantee)
+}
+
 /// Pure sourced cost preview. Unknown cost cannot authorize a cfbk dispatch permit.
 pub fn preview(
     adapter: &impl Adapter,
@@ -156,13 +198,14 @@ pub fn preview(
     evidence: &[u8],
     price: Price,
     source: String,
+    valid_until: u64,
     now: u64,
 ) -> Result<Quote, Error> {
     request.validate(now)?;
     Ok(Quote {
         price,
         source,
-        valid_until: request.context.expires,
+        valid_until: valid_until.min(request.context.expires),
         binding: binding(adapter, request, evidence),
     })
 }
@@ -197,7 +240,7 @@ impl<A: Adapter> Service<A> {
         request: &Request<'_>,
         evidence: &[u8],
         permit: DispatchPermit<String>,
-        state: &mut impl State,
+        state: &mut (impl State + DispatchState),
         disclosure: Disclosure,
         now: u64,
     ) -> Result<Verified, Error> {
@@ -215,44 +258,14 @@ impl<A: Adapter> Service<A> {
         if permit.candidate() != self.adapter.id() {
             return Err(Error::Cost);
         }
+        if !state.reserve_dispatch(permit.quote()) {
+            return Err(Error::Cost);
+        }
         let result = self
             .adapter
             .verify(evidence, &request.binding(), permit.quote())
             .await?;
-        if result.subject != request.subject
-            || result.context != request.binding()
-            || result.id.is_empty()
-            || result.observed_at > now
-            || now - result.observed_at > request.max_age
-        {
-            return Err(Error::Rejected);
-        }
-        let guarantee = match &request.requirement {
-            Requirement::Encounter { peer } => {
-                if result.peer.as_deref() != Some(*peer) {
-                    return Err(Error::Rejected);
-                }
-                Guarantee::ObserverEncounter
-            }
-            Requirement::Distance { target, radius_m } => {
-                let position = result.position.as_ref().ok_or(Error::Rejected)?;
-                if !position.validate() {
-                    return Err(Error::Rejected);
-                }
-                let distance: f64 = Geodesic::wgs84().inverse(
-                    target.latitude,
-                    target.longitude,
-                    position.latitude,
-                    position.longitude,
-                );
-                // Positive inclusion also rejects NaN from any unexpected upstream failure.
-                let within = distance + target.accuracy_m + position.accuracy_m <= *radius_m;
-                if !within {
-                    return Err(Error::Rejected);
-                }
-                Guarantee::ObserverDistance
-            }
-        };
+        let guarantee = evaluate(request, &result, now)?;
         let upstream = (disclosure == Disclosure::Complete).then_some(result.upstream);
         if self.adapter.mode() == Mode::Sandbox {
             return Ok(Verified::Sandbox { upstream });

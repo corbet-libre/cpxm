@@ -29,6 +29,17 @@ pub enum Error {
     Cost,
 }
 
+/// Required caller-owned atomic dispatch and budget reservation.
+/// Configure this port with the stable application operation and its total budget.
+/// No database connection is accepted or opened by the library.
+pub trait DispatchState {
+    /// Atomically reserve the exact quote binding and its maximum fee before I/O.
+    /// Return true only for a newly admitted dispatch. Previously dispatched,
+    /// pending or uncertain bindings must return false, including after restarts.
+    /// Reconciliation belongs to the host; dropping an adapter is not a rollback.
+    fn reserve_dispatch(&mut self, quote: &Quote) -> bool;
+}
+
 /// Scope and general registration limit supplied by the application.
 pub struct Context<'a> {
     /// Stable policy scope; include a caller-defined window or epoch when needed.
@@ -140,21 +151,9 @@ pub enum Disclosure {
     Complete,
 }
 
-/// Simulation cannot be converted to a production proof.
-#[derive(Debug, PartialEq, Eq)]
-pub struct Simulation {
-    /// Configured dummy outcome.
-    pub accepted: bool,
-    /// Hypothetical mechanism, not a verified guarantee.
-    pub mechanism: Guarantee,
-}
-/// Local simulation uses no credentials, state port, network or hardware.
-pub fn simulate(mechanism: Guarantee, accepted: bool) -> Simulation {
-    Simulation {
-        mechanism,
-        accepted,
-    }
-}
+pub mod simulation;
+pub use simulation::{Simulation, simulate};
+
 /// Local verification has zero external service fee; CPU/reader costs are separate.
 pub fn local_quote(unit: Unit, binding: String, valid_until: u64) -> Quote {
     Quote {

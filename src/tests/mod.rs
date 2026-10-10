@@ -177,12 +177,6 @@ fn invalid_context_blinding_and_simulation() {
         blind().key("subject", "scope", b"uid"),
         blind().key("evidence", "scope", b"uid")
     );
-    assert!(simulate(Guarantee::TagRead, true).accepted);
-    assert_eq!(
-        simulate(Guarantee::ObserverDistance, false).mechanism,
-        Guarantee::ObserverDistance
-    );
-    assert!(!format!("{:?}", simulate(Guarantee::ObserverEncounter, false)).is_empty());
     for e in [
         Error::Configuration,
         Error::Rejected,
@@ -286,6 +280,7 @@ fn permit_for(
         b"inert-evidence",
         Price::AtMost(amount()),
         "fixture tariff".into(),
+        200,
         100,
     )
     .unwrap();
@@ -509,6 +504,7 @@ fn invalid_predicates_are_refused_before_adapter_dispatch() {
                 b"evidence",
                 Price::Unknown,
                 "source".into(),
+                200,
                 100
             )
             .is_err()
@@ -546,6 +542,7 @@ fn invalid_predicates_are_refused_before_adapter_dispatch() {
                 b"evidence",
                 Price::Unknown,
                 "source".into(),
+                200,
                 100
             )
             .is_err()
@@ -566,9 +563,21 @@ fn invalid_predicates_are_refused_before_adapter_dispatch() {
                 b"evidence",
                 Price::Unknown,
                 "source".into(),
+                200,
                 100
             )
             .is_err()
         );
+    }
+}
+
+mod atomic;
+
+mod simulation;
+
+impl DispatchState for Store {
+    fn reserve_dispatch(&mut self, quote: &Quote) -> bool {
+        assert!(!quote.binding.is_empty());
+        true // Each independent fixture models a newly admitted host operation.
     }
 }
