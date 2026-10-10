@@ -20,6 +20,31 @@ pub struct Verified {
     pub upstream: Option<SdmVerification>,
 }
 
+/// Complete native upstream fields, available only through explicit access.
+#[derive(PartialEq, Eq)]
+pub struct Report(SdmVerification);
+impl Report {
+    /// Borrow every field supplied by the upstream verifier without a lossy mapping.
+    pub fn information(&self) -> &SdmVerification {
+        &self.0
+    }
+}
+impl std::fmt::Debug for Report {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("TagReport([redacted])")
+    }
+}
+fn failure(error: Error, result: SdmVerification, disclosure: Disclosure) -> Error {
+    if disclosure == Disclosure::Complete {
+        Error::TagReported {
+            cause: Box::new(error),
+            report: Report(result),
+        }
+    } else {
+        error
+    }
+}
+
 impl Tag {
     /// Use the tag's trusted SDM settings and provisioned keys. Factory keys are
     /// suitable only for test vectors. The expected UID comes from trusted enrollment.
@@ -50,14 +75,14 @@ impl Tag {
         disclosure: Disclosure,
         now: u64,
     ) -> Result<Verified, Error> {
-        let result = self.authenticate(ndef, context, now)?;
+        let result = self.authenticate(ndef, context, disclosure, now)?;
         let counter = result.read_ctr.expect("authenticate requires a counter");
         let identity = self
             .blinding
             .key("tag-identity", context.scope, &self.expected_uid);
         let evidence = self.blinding.key("tag-counter", "", &self.expected_uid);
         if !store.reserve(&identity, &evidence, Some(counter), context) {
-            return Err(Error::State);
+            return Err(failure(Error::State, result, disclosure));
         }
         Ok(Verified {
             proof: Proof {
@@ -79,9 +104,9 @@ impl Tag {
         disclosure: Disclosure,
         now: u64,
     ) -> Result<Simulation, Error> {
-        let result = self.authenticate(ndef, context, now)?;
+        let result = self.authenticate(ndef, context, disclosure, now)?;
         if !permitted {
-            return Err(Error::State);
+            return Err(failure(Error::State, result, disclosure));
         }
         Ok(Simulation {
             expires: context.expires,
@@ -93,6 +118,7 @@ impl Tag {
         &self,
         ndef: &[u8],
         context: &Context<'_>,
+        disclosure: Disclosure,
         now: u64,
     ) -> Result<SdmVerification, Error> {
         context.validate(now)?;
@@ -103,10 +129,17 @@ impl Tag {
             .verifier
             .verify_with_meta_key(ndef, &self.file_key, &self.meta_key)
             .map_err(|_| Error::Rejected)?;
-        if result.uid != Some(self.expected_uid) {
-            return Err(Error::Rejected);
+        self.accept_result(result, disclosure)
+    }
+
+    pub(crate) fn accept_result(
+        &self,
+        result: SdmVerification,
+        disclosure: Disclosure,
+    ) -> Result<SdmVerification, Error> {
+        if result.uid != Some(self.expected_uid) || result.read_ctr.is_none() {
+            return Err(failure(Error::Rejected, result, disclosure));
         }
-        result.read_ctr.ok_or(Error::Rejected)?;
         Ok(result)
     }
 }

@@ -35,6 +35,14 @@ pub enum Error {
         /// Transient provider response; diagnostics redact its contents.
         report: ProviderReport,
     },
+    /// Explicitly requested native tag fields accompany a failed policy decision.
+    #[error("{cause}")]
+    TagReported {
+        /// Redacted domain failure.
+        cause: Box<Error>,
+        /// Complete upstream tag result with redacted diagnostics.
+        report: tag::Report,
+    },
 }
 /// Private transient provider data. Access and retention are explicit caller choices.
 #[derive(PartialEq, Eq)]
@@ -54,7 +62,7 @@ impl Error {
     /// Underlying failure category, without private provider information.
     pub fn category(&self) -> &Self {
         match self {
-            Self::Reported { cause, .. } => cause.category(),
+            Self::Reported { cause, .. } | Self::TagReported { cause, .. } => cause.category(),
             other => other,
         }
     }
@@ -62,6 +70,13 @@ impl Error {
     pub fn report(&self) -> Option<&ProviderReport> {
         match self {
             Self::Reported { report, .. } => Some(report),
+            _ => None,
+        }
+    }
+    /// Explicit access to every native upstream tag field after a policy failure.
+    pub fn tag_report(&self) -> Option<&tag::Report> {
+        match self {
+            Self::TagReported { report, .. } => Some(report),
             _ => None,
         }
     }

@@ -660,3 +660,68 @@ fn tag_simulation_uses_real_authentication_without_touching_replay_state() {
         .is_ok()
     );
 }
+
+#[test]
+fn complete_tag_reports_survive_identity_counter_and_state_refusals() {
+    let engine = tag();
+    let mut denied = Store {
+        deny: true,
+        ..Store::default()
+    };
+    let errors = [
+        tag_with([1; 7], [0; 16])
+            .verify(
+                NDEF,
+                &context(),
+                &mut Store::default(),
+                Disclosure::Complete,
+                100,
+            )
+            .err()
+            .unwrap(),
+        engine
+            .verify(NDEF, &context(), &mut denied, Disclosure::Complete, 100)
+            .err()
+            .unwrap(),
+        engine
+            .simulate(NDEF, &context(), false, Disclosure::Complete, 100)
+            .err()
+            .unwrap(),
+    ];
+    for (index, error) in errors.into_iter().enumerate() {
+        assert_eq!(
+            error.category(),
+            if index == 0 {
+                &Error::Rejected
+            } else {
+                &Error::State
+            }
+        );
+        let report = error.tag_report().unwrap();
+        assert_eq!(
+            report.information().uid,
+            Some([4, 0xde, 0x5f, 0x1e, 0xac, 0xc0, 0x40])
+        );
+        assert_eq!(report.information().read_ctr, Some(61));
+        assert_eq!(format!("{report:?}"), "TagReport([redacted])");
+        assert!(!format!("{error:?}").contains("read_ctr"));
+        assert!(error.report().is_none());
+    }
+    for disclosure in [Disclosure::Minimal, Disclosure::Complete] {
+        let result = ntag424::sdm::SdmVerification {
+            uid: Some([4, 0xde, 0x5f, 0x1e, 0xac, 0xc0, 0x40]),
+            read_ctr: None,
+            tamper_status: None,
+            enc_file_data: Some(vec![1, 2, 3]),
+        };
+        let expected = result.clone();
+        let error = engine.accept_result(result, disclosure).unwrap_err();
+        assert_eq!(error.category(), &Error::Rejected);
+        if disclosure == Disclosure::Complete {
+            assert_eq!(error.tag_report().unwrap().information(), &expected);
+        } else {
+            assert!(error.tag_report().is_none());
+        }
+    }
+    assert!(Error::State.tag_report().is_none());
+}
