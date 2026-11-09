@@ -5,7 +5,7 @@ edition = "2024"
 rust-version = "1.88"
 description = "Reusable authenticated tag, encounter and location verification with private projections"
 license = "LGPL-3.0-only WITH LGPL-3.0-linking-exception"
-repository = "https://git.corbet.ch/corbet-foss/cpxm"
+repository = "https://git.corbet.ch/corbet-libre/cpxm"
 readme = "README.md"
 publish = false
 include = ["Cargo.toml", "src/**", "README.md", "LICENSE", "LICENSE.md", "LICENSES/LGPL-3.0-only.txt", "LICENSES/LGPL-3.0-linking-exception.txt", "LICENSES/GPL-3.0-only.txt"]
@@ -19,7 +19,7 @@ missing_docs = "warn"
 
 [dependencies]
 hex = "0.4"
-cfbk = { git = "https://git.corbet.ch/corbet-foss/cfbk", branch = "main" }
+cfbk = { git = "https://git.corbet.ch/corbet-libre/cfbk", branch = "main" }
 ntag424 = { version = "0.1", default-features = false, features = ["sdm", "alloc"] }
 geographiclib-rs = "0.2"
 hmac = "0.13"
