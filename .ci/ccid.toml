@@ -15,7 +15,7 @@ render_schema = 2
 
 [jobs.verify]
 scheduler = "forgejo"
-runs_on = "heavy"
+runs_on = "linux"
 events = ["push", "manual"]
 checks = ["verify"]
 workflow = "ci"
