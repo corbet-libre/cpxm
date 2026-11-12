@@ -23,7 +23,7 @@ command = ["bash", ".ci/run-cached.sh"]
 
 [jobs.verify-pr]
 scheduler = "forgejo"
-runs_on = "light"
+runs_on = "linux"
 events = ["pull_request"]
 checks = ["verify"]
 workflow = "pr"
